@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enum cho vai trò người dùng
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+// Enum cho giới tính
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+// Enum cho trạng thái lớp học
+enum ClassroomStatus {
+  ACTIVE
+  INACTIVE
+  COMPLETED
+}
+
+// Model User - Người dùng (Giáo viên/Học sinh/Admin)
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password      String
+  fullName      String   @map("full_name")
+  role          Role     @default(STUDENT)
+  avatar        String?
+  phoneNumber   String?  @map("phone_number")
+  address       String?
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  teachingClasses Classroom[] @relation("TeacherClassrooms")
+  studentProfile  Student?
+  teacherProfile  Teacher?
+
+  @@map("users")
+}
+
+// Model Teacher - Giáo viên
+model Teacher {
+  id             String   @id @default(uuid())
+  userId         String   @unique @map("user_id")
+  teacherId      String   @unique @map("teacher_id") // Mã giáo viên (VD: GV001)
+  department     String   // Khoa
+  qualification  String   // Trình độ (Thạc sĩ, Tiến sĩ...)
+  specialization String   // Chuyên môn
+  bio            String?  // Tiểu sử
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("teachers")
+}
+
+// Model Student - Sinh viên
+model Student {
+  id           String    @id @default(uuid())
+  userId       String    @unique @map("user_id")
+  studentId    String    @unique @map("student_id") // Mã sinh viên (VD: SV001)
+  dateOfBirth  DateTime  @map("date_of_birth")
+  gender       Gender
+  major        String    // Ngành học
+  academicYear String    @map("academic_year") // Khóa học (VD: K18)
+  gpa          Float?    @default(0.0)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  enrollments ClassroomEnrollment[]
+
+  @@map("students")
+}
+
+// Model Classroom - Lớp học
+model Classroom {
+  id             String          @id @default(uuid())
+  classroomCode  String          @unique @map("classroom_code") // Mã lớp (VD: IT101)
+  name           String
+  description    String?
+  teacherId      String          @map("teacher_id")
+  subject        String          // Môn học
+  room           String?         // Phòng học
+  schedule       String?         // Lịch học (VD: "T2,T4: 7h-9h")
+  semester       String          // Học kỳ (VD: "HK1 2024-2025")
+  maxStudents    Int             @default(50) @map("max_students")
+  status         ClassroomStatus @default(ACTIVE)
+  startDate      DateTime        @map("start_date")
+  endDate        DateTime?       @map("end_date")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  teacher     User                  @relation("TeacherClassrooms", fields: [teacherId], references: [id])
+  enrollments ClassroomEnrollment[]
+  attendances Attendance[]
+
+  @@map("classrooms")
+}
+
+// Model ClassroomEnrollment - Đăng ký lớp học (Many-to-Many)
+model ClassroomEnrollment {
+  id           String    @id @default(uuid())
+  studentId    String    @map("student_id")
+  classroomId  String    @map("classroom_id")
+  enrolledAt   DateTime  @default(now()) @map("enrolled_at")
+  grade        Float?    // Điểm số
+  status       String    @default("ENROLLED") // ENROLLED, DROPPED, COMPLETED
+  notes        String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  student   Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classroom Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, classroomId])
+  @@map("classroom_enrollments")
+}
+
+// Model Attendance - Điểm danh
+model Attendance {
+  id          String   @id @default(uuid())
+  classroomId String   @map("classroom_id")
+  studentId   String   @map("student_id")
+  date        DateTime
+  status      String   @default("PRESENT") // PRESENT, ABSENT, LATE, EXCUSED
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  classroom Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  @@unique([classroomId, studentId, date])
+  @@map("attendances")
+}
