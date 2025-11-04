@@ -202,11 +202,12 @@ Classroom (1) ←→ (N) Attendance
 - Kiểm tra DATABASE_URL trong .env
 - Thử: `psql -U postgres` để test connection
 
-### Lỗi: Prisma Client not generated
+### Lỗi: Prisma Client not generated / '"@prisma/client"' has no exported member 'PrismaClient'
 
 **Giải pháp:**
 ```bash
 cd backend
+npm install @prisma/client prisma --save
 npx prisma generate
 ```
 
